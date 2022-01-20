@@ -20,5 +20,5 @@ A Zig implementation of the [EdDSA key blinding](https://chris-wood.github.io/dr
 
     // Unblind the public key
     const pk = try BlindEd25519.unblind_public_key(blind_kp.blind_public_key, blind);
-    try std.testing.expectEqualSlices(u8, &pk, &kp.public
+    try std.testing.expectEqualSlices(u8, &pk, &kp.public_key);
 ```
