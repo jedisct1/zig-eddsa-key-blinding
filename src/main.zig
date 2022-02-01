@@ -40,7 +40,6 @@ pub const BlindEd25519 = struct {
 
         var blind_h: [Sha512.digest_length]u8 = undefined;
         Sha512.hash(blind_seed[0..], &blind_h, .{});
-        Curve.scalar.clamp(blind_h[0..32]);
         const blind_factor = Curve.scalar.reduce(blind_h[0..32].*);
 
         const blind_scalar = Curve.scalar.mul(scalar, blind_factor);
@@ -65,7 +64,6 @@ pub const BlindEd25519 = struct {
     pub fn unblind_public_key(blind_public_key: [public_key_length]u8, blind_seed: [blind_seed_length]u8) ![public_key_length]u8 {
         var blind_h: [Sha512.digest_length]u8 = undefined;
         Sha512.hash(&blind_seed, &blind_h, .{});
-        Curve.scalar.clamp(blind_h[0..32]);
         const inv_blind_factor = Scalar.fromBytes(blind_h[0..32].*).invert().toBytes();
         const public_key = try (try Curve.fromBytes(blind_public_key)).mul(inv_blind_factor);
         return public_key.toBytes();
