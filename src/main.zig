@@ -61,7 +61,7 @@ pub const BlindEd25519 = struct {
     }
 
     /// Recover a public key from a blind version of it.
-    pub fn unblind_public_key(blind_public_key: [public_key_length]u8, blind_seed: [blind_seed_length]u8) ![public_key_length]u8 {
+    pub fn unblindPublicKey(blind_public_key: [public_key_length]u8, blind_seed: [blind_seed_length]u8) ![public_key_length]u8 {
         var blind_h: [Sha512.digest_length]u8 = undefined;
         Sha512.hash(&blind_seed, &blind_h, .{});
         const inv_blind_factor = Scalar.fromBytes(blind_h[0..32].*).invert().toBytes();
@@ -118,6 +118,6 @@ test "Blind key EdDSA signature" {
     try Ed25519.verify(sig, msg, blind_kp.blind_public_key);
 
     // Unblind the public key
-    const pk = try BlindEd25519.unblind_public_key(blind_kp.blind_public_key, blind);
+    const pk = try BlindEd25519.unblindPublicKey(blind_kp.blind_public_key, blind);
     try std.testing.expectEqualSlices(u8, &pk, &kp.public_key);
 }
