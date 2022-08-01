@@ -32,14 +32,18 @@ pub const BlindEd25519 = struct {
     };
 
     /// Blind an existing key pair with a blinding seed.
-    pub fn blind(key_pair: Ed25519.KeyPair, blind_seed: [blind_seed_length]u8) !BlindKeyPair {
+    pub fn blind(key_pair: Ed25519.KeyPair, blind_seed: [blind_seed_length]u8, ctx: []const u8) !BlindKeyPair {
         var h: [Sha512.digest_length]u8 = undefined;
         Sha512.hash(key_pair.secret_key[0..32], &h, .{});
         Curve.scalar.clamp(h[0..32]);
         const scalar = Curve.scalar.reduce(h[0..32].*);
 
         var blind_h: [Sha512.digest_length]u8 = undefined;
-        Sha512.hash(blind_seed[0..], &blind_h, .{});
+        var hx = Sha512.init(.{});
+        hx.update(blind_seed[0..]);
+        hx.update(&[1]u8{0});
+        hx.update(ctx);
+        hx.final(&blind_h);
         const blind_factor = Curve.scalar.reduce(blind_h[0..32].*);
 
         const blind_scalar = Curve.scalar.mul(scalar, blind_factor);
@@ -61,9 +65,13 @@ pub const BlindEd25519 = struct {
     }
 
     /// Recover a public key from a blind version of it.
-    pub fn unblindPublicKey(blind_public_key: [public_key_length]u8, blind_seed: [blind_seed_length]u8) ![public_key_length]u8 {
+    pub fn unblindPublicKey(blind_public_key: [public_key_length]u8, blind_seed: [blind_seed_length]u8, ctx: []const u8) ![public_key_length]u8 {
         var blind_h: [Sha512.digest_length]u8 = undefined;
-        Sha512.hash(&blind_seed, &blind_h, .{});
+        var hx = Sha512.init(.{});
+        hx.update(blind_seed[0..]);
+        hx.update(&[1]u8{0});
+        hx.update(ctx);
+        hx.final(&blind_h);
         const inv_blind_factor = Scalar.fromBytes(blind_h[0..32].*).invert().toBytes();
         const public_key = try (try Curve.fromBytes(blind_public_key)).mul(inv_blind_factor);
         return public_key.toBytes();
@@ -110,7 +118,7 @@ test "Blind key EdDSA signature" {
     crypto.random.bytes(&blind);
 
     // Blind the key pair
-    const blind_kp = try BlindEd25519.blind(kp, blind);
+    const blind_kp = try BlindEd25519.blind(kp, blind, "ctx");
 
     // Sign a message and check that it can be verified with the blind public key
     const msg = "test";
@@ -118,6 +126,6 @@ test "Blind key EdDSA signature" {
     try Ed25519.verify(sig, msg, blind_kp.blind_public_key);
 
     // Unblind the public key
-    const pk = try BlindEd25519.unblindPublicKey(blind_kp.blind_public_key, blind);
+    const pk = try BlindEd25519.unblindPublicKey(blind_kp.blind_public_key, blind, "ctx");
     try std.testing.expectEqualSlices(u8, &pk, &kp.public_key);
 }
